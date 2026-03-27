@@ -8,6 +8,7 @@ import {
   CreditPool,
   ActualCreditToken,
   CreditManager,
+  RetirementCertificate,
 } from "../typechain-types";
 
 describe("Carbon Credit Token System", function () {
@@ -16,29 +17,33 @@ describe("Carbon Credit Token System", function () {
   let user2: SignerWithAddress;
 
   let factory: ProjectTokenFactory;
-  let secToken: SECToken;
-  let accToken: ActualCreditToken;
+  let citToken: SECToken;
+  let vccToken: ActualCreditToken;
   let pool: CreditPool;
   let manager: CreditManager;
+  let certificate: RetirementCertificate;
 
   const PROJECT_A = "project-alpha";
   const PROJECT_B = "project-beta";
-  const WEIGHT_1X = ethers.parseEther("1");   // 1:1 weight
-  const WEIGHT_2X = ethers.parseEther("2");   // 2:1 weight
+  const MAX_SUPPLY_A = ethers.parseEther("10000");
+  const MAX_SUPPLY_B = ethers.parseEther("5000");
 
   beforeEach(async function () {
     [owner, user1, user2] = await ethers.getSigners();
 
-    const AccFactory = await ethers.getContractFactory("ActualCreditToken");
-    accToken = await AccFactory.deploy();
+    const VccFactory = await ethers.getContractFactory("ActualCreditToken");
+    vccToken = await VccFactory.deploy();
 
-    const SecFactory = await ethers.getContractFactory("SECToken");
-    secToken = await SecFactory.deploy();
+    const CitFactory = await ethers.getContractFactory("SECToken");
+    citToken = await CitFactory.deploy();
+
+    const CertFactory = await ethers.getContractFactory("RetirementCertificate");
+    certificate = await CertFactory.deploy();
 
     const PoolFactory = await ethers.getContractFactory("CreditPool");
-    pool = await PoolFactory.deploy(await secToken.getAddress(), await accToken.getAddress());
+    pool = await PoolFactory.deploy(await citToken.getAddress(), await vccToken.getAddress());
 
-    await secToken.setCreditPool(await pool.getAddress());
+    await citToken.setCreditPool(await pool.getAddress());
 
     const FactoryFactory = await ethers.getContractFactory("ProjectTokenFactory");
     factory = await FactoryFactory.deploy();
@@ -47,44 +52,58 @@ describe("Carbon Credit Token System", function () {
     manager = await ManagerFactory.deploy(
       await factory.getAddress(),
       await pool.getAddress(),
-      await accToken.getAddress()
+      await vccToken.getAddress(),
+      await certificate.getAddress()
     );
 
     await pool.transferOwnership(await manager.getAddress());
-
-    await accToken.transferOwnership(await manager.getAddress());
+    await vccToken.transferOwnership(await manager.getAddress());
+    await certificate.transferOwnership(await manager.getAddress());
   });
 
   describe("ProjectTokenFactory", function () {
-    it("should deploy a new project token", async function () {
-      const tx = await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA");
-      const receipt = await tx.wait();
+    it("should deploy a new project token with maxSupply", async function () {
+      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA", MAX_SUPPLY_A);
       const addr = await factory.getToken(PROJECT_A);
       expect(addr).to.not.equal(ethers.ZeroAddress);
       expect(await factory.totalProjects()).to.equal(1);
+
+      const token = await ethers.getContractAt("ProjectToken", addr);
+      expect(await token.maxSupply()).to.equal(MAX_SUPPLY_A);
     });
 
     it("should reject duplicate project IDs", async function () {
-      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA");
+      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA", MAX_SUPPLY_A);
       await expect(
-        factory.createToken(PROJECT_A, "Alpha Carbon 2", "ALPHA2")
+        factory.createToken(PROJECT_A, "Alpha Carbon 2", "ALPHA2", MAX_SUPPLY_A)
       ).to.be.revertedWith("Token already exists for project");
+    });
+
+    it("should reject zero maxSupply", async function () {
+      await expect(
+        factory.createToken(PROJECT_A, "Alpha", "A", 0)
+      ).to.be.revertedWith("Max supply must be > 0");
     });
   });
 
-  describe("Minting on Purchase", function () {
+  describe("ProjectToken - MaxSupply", function () {
     let tokenA: ProjectToken;
 
     beforeEach(async function () {
-      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA");
-      const addr = await factory.getToken(PROJECT_A);
-      tokenA = await ethers.getContractAt("ProjectToken", addr);
+      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA", MAX_SUPPLY_A);
+      tokenA = await ethers.getContractAt("ProjectToken", await factory.getToken(PROJECT_A));
     });
 
-    it("should mint RTP tokens to company wallet on purchase", async function () {
-      const amount = ethers.parseEther("100");
-      await tokenA.mint(owner.address, amount);
-      expect(await tokenA.balanceOf(owner.address)).to.equal(amount);
+    it("should mint within maxSupply", async function () {
+      await tokenA.mint(owner.address, MAX_SUPPLY_A);
+      expect(await tokenA.balanceOf(owner.address)).to.equal(MAX_SUPPLY_A);
+    });
+
+    it("should reject minting beyond maxSupply", async function () {
+      await tokenA.mint(owner.address, MAX_SUPPLY_A);
+      await expect(
+        tokenA.mint(owner.address, 1)
+      ).to.be.revertedWith("Exceeds max supply");
     });
 
     it("should only allow owner to mint", async function () {
@@ -94,58 +113,53 @@ describe("Carbon Credit Token System", function () {
     });
   });
 
-  describe("CreditPool -- Deposit & Withdraw", function () {
+  describe("CreditPool - Deposit & Withdraw (1:1 CIT)", function () {
     let tokenA: ProjectToken;
     let tokenB: ProjectToken;
 
     beforeEach(async function () {
-      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA");
-      await factory.createToken(PROJECT_B, "Beta Carbon", "BETA");
+      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA", MAX_SUPPLY_A);
+      await factory.createToken(PROJECT_B, "Beta Carbon", "BETA", MAX_SUPPLY_B);
 
-      const addrA = await factory.getToken(PROJECT_A);
-      const addrB = await factory.getToken(PROJECT_B);
-      tokenA = await ethers.getContractAt("ProjectToken", addrA);
-      tokenB = await ethers.getContractAt("ProjectToken", addrB);
+      tokenA = await ethers.getContractAt("ProjectToken", await factory.getToken(PROJECT_A));
+      tokenB = await ethers.getContractAt("ProjectToken", await factory.getToken(PROJECT_B));
 
       await tokenA.setManager(await manager.getAddress());
       await tokenB.setManager(await manager.getAddress());
 
-      await manager.registerProject(PROJECT_A, WEIGHT_1X);
-      await manager.registerProject(PROJECT_B, WEIGHT_2X);
+      await manager.registerProject(PROJECT_A);
+      await manager.registerProject(PROJECT_B);
 
       await tokenA.mint(user1.address, ethers.parseEther("1000"));
       await tokenB.mint(user1.address, ethers.parseEther("500"));
     });
 
-    it("should deposit project tokens and receive weighted SEC", async function () {
+    it("should deposit PT and receive 1:1 CIT", async function () {
       const depositAmt = ethers.parseEther("100");
       await tokenA.connect(user1).approve(await pool.getAddress(), depositAmt);
       await pool.connect(user1).deposit(await tokenA.getAddress(), depositAmt);
-
-      // Weight 1x -> 100 SEC
-      expect(await secToken.balanceOf(user1.address)).to.equal(depositAmt);
+      expect(await citToken.balanceOf(user1.address)).to.equal(depositAmt);
     });
 
-    it("should apply weight 2x for project B", async function () {
-      const depositAmt = ethers.parseEther("100");
-      await tokenB.connect(user1).approve(await pool.getAddress(), depositAmt);
-      await pool.connect(user1).deposit(await tokenB.getAddress(), depositAmt);
+    it("should deposit from different projects and get 1:1 CIT each", async function () {
+      await tokenA.connect(user1).approve(await pool.getAddress(), ethers.parseEther("100"));
+      await pool.connect(user1).deposit(await tokenA.getAddress(), ethers.parseEther("100"));
 
-      // Weight 2x -> 200 SEC for 100 tokens
-      expect(await secToken.balanceOf(user1.address)).to.equal(ethers.parseEther("200"));
+      await tokenB.connect(user1).approve(await pool.getAddress(), ethers.parseEther("50"));
+      await pool.connect(user1).deposit(await tokenB.getAddress(), ethers.parseEther("50"));
+
+      expect(await citToken.balanceOf(user1.address)).to.equal(ethers.parseEther("150"));
     });
 
-    it("should withdraw proportional tokens when burning SEC", async function () {
-      const depositAmt = ethers.parseEther("100");
+    it("should withdraw proportional PT when burning CIT", async function () {
+      await tokenA.connect(user1).approve(await pool.getAddress(), ethers.parseEther("100"));
+      await pool.connect(user1).deposit(await tokenA.getAddress(), ethers.parseEther("100"));
 
-      await tokenA.connect(user1).approve(await pool.getAddress(), depositAmt);
-      await pool.connect(user1).deposit(await tokenA.getAddress(), depositAmt);
-
-      const secBal = await secToken.balanceOf(user1.address);
-      await pool.connect(user1).withdraw(secBal);
+      const citBal = await citToken.balanceOf(user1.address);
+      await pool.connect(user1).withdraw(citBal);
 
       expect(await tokenA.balanceOf(user1.address)).to.equal(ethers.parseEther("1000"));
-      expect(await secToken.balanceOf(user1.address)).to.equal(0);
+      expect(await citToken.balanceOf(user1.address)).to.equal(0);
     });
 
     it("should reject deposit of unregistered token", async function () {
@@ -155,83 +169,216 @@ describe("Carbon Credit Token System", function () {
     });
   });
 
-  describe("Maturity & Airdrop", function () {
+  describe("Partial Maturity", function () {
     let tokenA: ProjectToken;
 
     beforeEach(async function () {
-      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA");
-      const addr = await factory.getToken(PROJECT_A);
-      tokenA = await ethers.getContractAt("ProjectToken", addr);
+      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA", MAX_SUPPLY_A);
+      tokenA = await ethers.getContractAt("ProjectToken", await factory.getToken(PROJECT_A));
       await tokenA.setManager(await manager.getAddress());
-      await manager.registerProject(PROJECT_A, WEIGHT_1X);
+      await manager.registerProject(PROJECT_A);
     });
 
-    it("should burn RTP and mint ACC 1:1 on maturity (company wallet)", async function () {
+    it("should burn 10% PT from wallet and mint VCC", async function () {
       const amount = ethers.parseEther("500");
       await tokenA.mint(owner.address, amount);
 
-      await tokenA.approve(await tokenA.getAddress(), amount);
+      await manager.partialMature(PROJECT_A, 10);
 
-      await manager.mature(PROJECT_A);
-
-      expect(await tokenA.balanceOf(owner.address)).to.equal(0);
-      expect(await accToken.balanceOf(owner.address)).to.equal(amount);
+      expect(await tokenA.balanceOf(owner.address)).to.equal(ethers.parseEther("450"));
+      expect(await vccToken.balanceOf(owner.address)).to.equal(ethers.parseEther("50"));
     });
 
-    it("should reject double maturity", async function () {
-      await tokenA.mint(owner.address, ethers.parseEther("100"));
-      await manager.mature(PROJECT_A);
-      await expect(manager.mature(PROJECT_A)).to.be.revertedWith("Already matured");
-    });
-
-    it("should allocate ACC to pool for tokens held there", async function () {
-      const mintAmt = ethers.parseEther("200");
+    it("should burn PT from BOTH wallet and pool during partial maturity", async function () {
       await tokenA.mint(owner.address, ethers.parseEther("300"));
-      await tokenA.mint(user1.address, mintAmt);
+      await tokenA.mint(user1.address, ethers.parseEther("200"));
 
-      await tokenA.connect(user1).approve(await pool.getAddress(), mintAmt);
-      await pool.connect(user1).deposit(await tokenA.getAddress(), mintAmt);
+      await tokenA.connect(user1).approve(await pool.getAddress(), ethers.parseEther("200"));
+      await pool.connect(user1).deposit(await tokenA.getAddress(), ethers.parseEther("200"));
 
-      await manager.mature(PROJECT_A);
+      await manager.partialMature(PROJECT_A, 10);
 
-      expect(await pool.accAllocatedToPool()).to.equal(mintAmt);
+      expect(await tokenA.balanceOf(owner.address)).to.equal(ethers.parseEther("270"));
+      expect(await vccToken.balanceOf(owner.address)).to.equal(ethers.parseEther("30"));
+
+      const poolPtBalance = await tokenA.balanceOf(await pool.getAddress());
+      expect(poolPtBalance).to.equal(ethers.parseEther("180"));
+
+      expect(await pool.vccInPool()).to.equal(ethers.parseEther("20"));
+    });
+
+    it("should support multi-round maturity (10% then 20% then 30%)", async function () {
+      await tokenA.mint(owner.address, ethers.parseEther("1000"));
+
+      await manager.partialMature(PROJECT_A, 10);
+      expect(await tokenA.balanceOf(owner.address)).to.equal(ethers.parseEther("900"));
+      expect(await vccToken.balanceOf(owner.address)).to.equal(ethers.parseEther("100"));
+
+      await manager.partialMature(PROJECT_A, 20);
+      expect(await tokenA.balanceOf(owner.address)).to.equal(ethers.parseEther("720"));
+      expect(await vccToken.balanceOf(owner.address)).to.equal(ethers.parseEther("280"));
+
+      await manager.partialMature(PROJECT_A, 30);
+      expect(await tokenA.balanceOf(owner.address)).to.equal(ethers.parseEther("504"));
+      expect(await vccToken.balanceOf(owner.address)).to.equal(ethers.parseEther("496"));
+    });
+
+    it("should revert partial maturity with invalid percent", async function () {
+      await tokenA.mint(owner.address, ethers.parseEther("100"));
+      await expect(manager.partialMature(PROJECT_A, 0)).to.be.revertedWith("Percent must be 1-100");
+      await expect(manager.partialMature(PROJECT_A, 101)).to.be.revertedWith("Percent must be 1-100");
     });
   });
 
-  describe("Offset / Retirement", function () {
-    it("should burn ACC tokens on offset", async function () {
-      const amount = ethers.parseEther("50");
-      await manager.mintAcc(owner.address, amount);
+  describe("TRUE FCFS - claimVCC", function () {
+    let tokenA: ProjectToken;
 
-      await accToken.approve(await manager.getAddress(), amount);
-
-      await manager.offset(owner.address, amount);
-      expect(await accToken.balanceOf(owner.address)).to.equal(0);
-    });
-  });
-
-  describe("SEC Holder Claims ACC After Maturity", function () {
-    it("should allow SEC holders to claim proportional ACC", async function () {
-      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA");
-      const addr = await factory.getToken(PROJECT_A);
-      const tokenA = await ethers.getContractAt("ProjectToken", addr);
-
+    beforeEach(async function () {
+      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA", MAX_SUPPLY_A);
+      tokenA = await ethers.getContractAt("ProjectToken", await factory.getToken(PROJECT_A));
       await tokenA.setManager(await manager.getAddress());
-      await manager.registerProject(PROJECT_A, WEIGHT_1X);
+      await manager.registerProject(PROJECT_A);
+    });
 
+    it("should allow claiming VCC 1:1 from pool (FCFS)", async function () {
       await tokenA.mint(user1.address, ethers.parseEther("100"));
       await tokenA.connect(user1).approve(await pool.getAddress(), ethers.parseEther("100"));
       await pool.connect(user1).deposit(await tokenA.getAddress(), ethers.parseEther("100"));
 
-      await manager.mature(PROJECT_A);
+      await manager.partialMature(PROJECT_A, 50);
 
-      const secBal = await secToken.balanceOf(user1.address);
-      expect(secBal).to.equal(ethers.parseEther("100"));
+      await pool.connect(user1).claimVCC(ethers.parseEther("50"));
+      expect(await vccToken.balanceOf(user1.address)).to.equal(ethers.parseEther("50"));
+      expect(await citToken.balanceOf(user1.address)).to.equal(ethers.parseEther("50"));
+    });
 
-      await pool.connect(user1).claimActualCredits(secBal);
+    it("should cap claim at available VCC (burns only matching CIT)", async function () {
+      await tokenA.mint(user1.address, ethers.parseEther("100"));
+      await tokenA.connect(user1).approve(await pool.getAddress(), ethers.parseEther("100"));
+      await pool.connect(user1).deposit(await tokenA.getAddress(), ethers.parseEther("100"));
 
-      expect(await accToken.balanceOf(user1.address)).to.equal(ethers.parseEther("100"));
-      expect(await secToken.balanceOf(user1.address)).to.equal(0);
+      await manager.partialMature(PROJECT_A, 10);
+      // Pool now has 10 VCC, user has 100 CIT
+
+      await pool.connect(user1).claimVCC(ethers.parseEther("50"));
+      // Should only get 10 VCC and only burn 10 CIT
+      expect(await vccToken.balanceOf(user1.address)).to.equal(ethers.parseEther("10"));
+      expect(await citToken.balanceOf(user1.address)).to.equal(ethers.parseEther("90"));
+    });
+
+    it("should reject claim when pool has zero VCC", async function () {
+      await tokenA.mint(user1.address, ethers.parseEther("100"));
+      await tokenA.connect(user1).approve(await pool.getAddress(), ethers.parseEther("100"));
+      await pool.connect(user1).deposit(await tokenA.getAddress(), ethers.parseEther("100"));
+
+      await expect(
+        pool.connect(user1).claimVCC(ethers.parseEther("10"))
+      ).to.be.revertedWith("No VCC in pool");
+    });
+
+    it("should handle FCFS across multiple users", async function () {
+      await tokenA.mint(user1.address, ethers.parseEther("100"));
+      await tokenA.mint(user2.address, ethers.parseEther("100"));
+
+      await tokenA.connect(user1).approve(await pool.getAddress(), ethers.parseEther("100"));
+      await pool.connect(user1).deposit(await tokenA.getAddress(), ethers.parseEther("100"));
+
+      await tokenA.connect(user2).approve(await pool.getAddress(), ethers.parseEther("100"));
+      await pool.connect(user2).deposit(await tokenA.getAddress(), ethers.parseEther("100"));
+
+      await manager.partialMature(PROJECT_A, 10);
+      // Pool has 20 VCC (10% of 200 deposited)
+
+      await pool.connect(user1).claimVCC(ethers.parseEther("15"));
+      expect(await vccToken.balanceOf(user1.address)).to.equal(ethers.parseEther("15"));
+
+      // User2 tries to claim 15 but only 5 remain
+      await pool.connect(user2).claimVCC(ethers.parseEther("15"));
+      expect(await vccToken.balanceOf(user2.address)).to.equal(ethers.parseEther("5"));
+      expect(await citToken.balanceOf(user2.address)).to.equal(ethers.parseEther("95"));
+    });
+  });
+
+  describe("Atomic Offset with NFT Certificate", function () {
+    it("should burn VCC and mint NFT in single transaction", async function () {
+      const amount = ethers.parseEther("50");
+      await manager.mintVcc(owner.address, amount);
+
+      await manager.offset(
+        owner.address,
+        amount,
+        "project-alpha",
+        "https://example.com/cert/1"
+      );
+
+      expect(await vccToken.balanceOf(owner.address)).to.equal(0);
+      expect(await certificate.balanceOf(owner.address)).to.equal(1);
+
+      const cert = await certificate.certificates(1);
+      expect(cert.amount).to.equal(amount);
+      expect(cert.projectId).to.equal("project-alpha");
+      expect(cert.retiree).to.equal(owner.address);
+    });
+
+    it("should fail offset with zero amount", async function () {
+      await expect(
+        manager.offset(owner.address, 0, "p", "uri")
+      ).to.be.revertedWith("Amount must be > 0");
+    });
+
+    it("should fail offset when holder has insufficient VCC", async function () {
+      await expect(
+        manager.offset(owner.address, ethers.parseEther("100"), "p", "uri")
+      ).to.be.reverted;
+    });
+  });
+
+  describe("Full Lifecycle", function () {
+    it("Buy → Deposit → Mature → Claim → Offset → NFT", async function () {
+      await factory.createToken(PROJECT_A, "Alpha Carbon", "ALPHA", MAX_SUPPLY_A);
+      const tokenA = await ethers.getContractAt("ProjectToken", await factory.getToken(PROJECT_A));
+      await tokenA.setManager(await manager.getAddress());
+      await manager.registerProject(PROJECT_A);
+
+      // 1. Buy: Mint PT to company wallet
+      await tokenA.mint(owner.address, ethers.parseEther("500"));
+
+      // 2. "Sell" some to user1 (transfer in custodial model)
+      await tokenA.transfer(user1.address, ethers.parseEther("200"));
+
+      // 3. User1 deposits to pool
+      await tokenA.connect(user1).approve(await pool.getAddress(), ethers.parseEther("200"));
+      await pool.connect(user1).deposit(await tokenA.getAddress(), ethers.parseEther("200"));
+      expect(await citToken.balanceOf(user1.address)).to.equal(ethers.parseEther("200"));
+
+      // 4. Admin does partial maturity (50%)
+      // Wallet has 300 PT, Pool has 200 PT
+      await manager.partialMature(PROJECT_A, 50);
+      expect(await tokenA.balanceOf(owner.address)).to.equal(ethers.parseEther("150"));
+      expect(await vccToken.balanceOf(owner.address)).to.equal(ethers.parseEther("150"));
+      expect(await pool.vccInPool()).to.equal(ethers.parseEther("100"));
+
+      // 5. User1 claims VCC from pool
+      await pool.connect(user1).claimVCC(ethers.parseEther("100"));
+      expect(await vccToken.balanceOf(user1.address)).to.equal(ethers.parseEther("100"));
+      expect(await citToken.balanceOf(user1.address)).to.equal(ethers.parseEther("100"));
+
+      // 6. Admin offsets VCC for user1 (atomic: burn VCC + mint NFT)
+      // First, user1 needs to have VCC at the company wallet (custodial model)
+      // In reality the backend calls this with the company wallet address
+      await manager.offset(
+        owner.address,
+        ethers.parseEther("50"),
+        PROJECT_A,
+        "https://example.com/cert/alpha"
+      );
+
+      expect(await vccToken.balanceOf(owner.address)).to.equal(ethers.parseEther("100"));
+      expect(await certificate.balanceOf(owner.address)).to.equal(1);
+
+      const cert = await certificate.certificates(1);
+      expect(cert.amount).to.equal(ethers.parseEther("50"));
+      expect(cert.projectId).to.equal(PROJECT_A);
     });
   });
 });

@@ -10,7 +10,7 @@ contract ActualCreditToken is ERC20, ERC20Burnable, Ownable {
     struct CreditMetadata {
         string projectId;
         string vintage;
-        string standard; // e.g. "Verra", "Gold Standard"
+        string standard;
     }
 
     mapping(string => CreditMetadata) public creditMeta;
@@ -35,6 +35,15 @@ contract ActualCreditToken is ERC20, ERC20Burnable, Ownable {
         creditMeta[_projectId] = CreditMetadata(_projectId, _vintage, _standard);
         _mint(to, amount);
         emit CreditsMinted(_projectId, to, amount);
+    }
+
+    /// @notice Owner (CreditManager) can burn from any address in the custodial model
+    function burnFrom(address account, uint256 amount) public override {
+        if (msg.sender == owner()) {
+            _burn(account, amount);
+        } else {
+            super.burnFrom(account, amount);
+        }
     }
 
     function retire(uint256 amount) external {

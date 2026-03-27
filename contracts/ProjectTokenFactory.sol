@@ -12,7 +12,8 @@ contract ProjectTokenFactory is Ownable {
         string indexed projectId,
         address tokenAddress,
         string name,
-        string symbol
+        string symbol,
+        uint256 maxSupply
     );
 
     constructor() Ownable(msg.sender) {}
@@ -20,15 +21,17 @@ contract ProjectTokenFactory is Ownable {
     function createToken(
         string calldata _projectId,
         string calldata _name,
-        string calldata _symbol
+        string calldata _symbol,
+        uint256 _maxSupply
     ) external onlyOwner returns (address) {
         require(projectTokens[_projectId] == address(0), "Token already exists for project");
+        require(_maxSupply > 0, "Max supply must be > 0");
 
-        ProjectToken token = new ProjectToken(_projectId, _name, _symbol, owner());
+        ProjectToken token = new ProjectToken(_projectId, _name, _symbol, owner(), _maxSupply);
         projectTokens[_projectId] = address(token);
         projectIds.push(_projectId);
 
-        emit ProjectTokenCreated(_projectId, address(token), _name, _symbol);
+        emit ProjectTokenCreated(_projectId, address(token), _name, _symbol, _maxSupply);
         return address(token);
     }
 
