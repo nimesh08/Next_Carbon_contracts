@@ -111,6 +111,20 @@ describe("Carbon Credit Token System", function () {
         tokenA.connect(user1).mint(user1.address, ethers.parseEther("10"))
       ).to.be.revertedWithCustomError(tokenA, "OwnableUnauthorizedAccount");
     });
+
+    it("should allow burnFrom by manager", async function () {
+      await tokenA.mint(owner.address, ethers.parseEther("100"));
+      await tokenA.setManager(user1.address);
+      await tokenA.connect(user1).burnFrom(owner.address, ethers.parseEther("50"));
+      expect(await tokenA.balanceOf(owner.address)).to.equal(ethers.parseEther("50"));
+    });
+
+    it("should reject burnFrom by non-authorized address", async function () {
+      await tokenA.mint(owner.address, ethers.parseEther("100"));
+      await expect(
+        tokenA.connect(user2).burnFrom(owner.address, ethers.parseEther("50"))
+      ).to.be.revertedWith("Not authorized");
+    });
   });
 
   describe("CreditPool - Deposit & Withdraw (1:1 CIT)", function () {
@@ -166,6 +180,29 @@ describe("Carbon Credit Token System", function () {
       await expect(
         pool.connect(user1).deposit(user1.address, ethers.parseEther("10"))
       ).to.be.revertedWith("Token not registered");
+    });
+
+    it("should reject deposit with zero amount", async function () {
+      await expect(
+        pool.connect(user1).deposit(await tokenA.getAddress(), 0)
+      ).to.be.revertedWith("Amount must be > 0");
+    });
+
+    it("should reject withdraw with zero amount", async function () {
+      await expect(
+        pool.connect(user1).withdraw(0)
+      ).to.be.revertedWith("Amount must be > 0");
+    });
+
+    it("should handle proportional withdraw with two project tokens", async function () {
+      await tokenA.connect(user1).approve(await pool.getAddress(), ethers.parseEther("600"));
+      await pool.connect(user1).deposit(await tokenA.getAddress(), ethers.parseEther("600"));
+      await tokenB.connect(user1).approve(await pool.getAddress(), ethers.parseEther("400"));
+      await pool.connect(user1).deposit(await tokenB.getAddress(), ethers.parseEther("400"));
+      await pool.connect(user1).withdraw(ethers.parseEther("500"));
+      expect(await tokenA.balanceOf(user1.address)).to.equal(ethers.parseEther("700"));
+      expect(await tokenB.balanceOf(user1.address)).to.equal(ethers.parseEther("300"));
+      expect(await citToken.balanceOf(user1.address)).to.equal(ethers.parseEther("500"));
     });
   });
 
@@ -227,6 +264,44 @@ describe("Carbon Credit Token System", function () {
       await tokenA.mint(owner.address, ethers.parseEther("100"));
       await expect(manager.partialMature(PROJECT_A, 0)).to.be.revertedWith("Percent must be 1-100");
       await expect(manager.partialMature(PROJECT_A, 101)).to.be.revertedWith("Percent must be 1-100");
+    });
+
+    it("should handle 100% maturity — burns all PT", async function () {
+      await tokenA.mint(owner.address, ethers.parseEther("1000"));
+      await manager.partialMature(PROJECT_A, 100);
+      expect(await tokenA.balanceOf(owner.address)).to.equal(0);
+      expect(await vccToken.balanceOf(owner.address)).to.equal(ethers.parseEther("1000"));
+    });
+
+    it("should verify PT burned equals VCC minted (conservation law)", async function () {
+      await tokenA.mint(owner.address, ethers.parseEther("777"));
+      const ptBefore = await tokenA.balanceOf(owner.address);
+      await manager.partialMature(PROJECT_A, 33);
+      const ptAfter = await tokenA.balanceOf(owner.address);
+      const vccMinted = await vccToken.balanceOf(owner.address);
+      expect(ptBefore - ptAfter).to.equal(vccMinted);
+    });
+
+    it("should handle integer rounding in partial maturity", async function () {
+      await tokenA.mint(owner.address, ethers.parseEther("999"));
+      await manager.partialMature(PROJECT_A, 50);
+      const ptRemaining = await tokenA.balanceOf(owner.address);
+      const vccMinted = await vccToken.balanceOf(owner.address);
+      expect(vccMinted).to.equal(ethers.parseEther("499"));
+      expect(ptRemaining).to.equal(ethers.parseEther("500"));
+      expect(ptRemaining + vccMinted).to.equal(ethers.parseEther("999"));
+    });
+
+    it("should revert maturity on unregistered project", async function () {
+      await expect(
+        manager.partialMature("nonexistent-project", 50)
+      ).to.be.revertedWith("Project not registered");
+    });
+
+    it("should revert maturity when nothing to mature (zero balances)", async function () {
+      await expect(
+        manager.partialMature(PROJECT_A, 50)
+      ).to.be.revertedWith("Nothing to mature");
     });
   });
 
@@ -297,6 +372,16 @@ describe("Carbon Credit Token System", function () {
       expect(await vccToken.balanceOf(user2.address)).to.equal(ethers.parseEther("5"));
       expect(await citToken.balanceOf(user2.address)).to.equal(ethers.parseEther("95"));
     });
+
+    it("should reject claim with zero amount", async function () {
+      await tokenA.mint(user1.address, ethers.parseEther("100"));
+      await tokenA.connect(user1).approve(await pool.getAddress(), ethers.parseEther("100"));
+      await pool.connect(user1).deposit(await tokenA.getAddress(), ethers.parseEther("100"));
+      await manager.partialMature(PROJECT_A, 50);
+      await expect(
+        pool.connect(user1).claimVCC(0)
+      ).to.be.revertedWith("Amount must be > 0");
+    });
   });
 
   describe("Atomic Offset with NFT Certificate", function () {
@@ -330,6 +415,29 @@ describe("Carbon Credit Token System", function () {
       await expect(
         manager.offset(owner.address, ethers.parseEther("100"), "p", "uri")
       ).to.be.reverted;
+    });
+
+    it("should mint sequential NFT IDs for multiple offsets", async function () {
+      await manager.mintVcc(owner.address, ethers.parseEther("100"));
+
+      await manager.offset(owner.address, ethers.parseEther("30"), "p1", "uri1");
+      await manager.offset(owner.address, ethers.parseEther("40"), "p2", "uri2");
+
+      expect(await certificate.balanceOf(owner.address)).to.equal(2);
+
+      const cert1 = await certificate.certificates(1);
+      const cert2 = await certificate.certificates(2);
+      expect(cert1.amount).to.equal(ethers.parseEther("30"));
+      expect(cert2.amount).to.equal(ethers.parseEther("40"));
+      expect(cert1.projectId).to.equal("p1");
+      expect(cert2.projectId).to.equal("p2");
+    });
+
+    it("should reject offset by non-owner", async function () {
+      await manager.mintVcc(user1.address, ethers.parseEther("50"));
+      await expect(
+        manager.connect(user1).offset(user1.address, ethers.parseEther("50"), "p", "uri")
+      ).to.be.revertedWithCustomError(manager, "OwnableUnauthorizedAccount");
     });
   });
 
@@ -379,6 +487,38 @@ describe("Carbon Credit Token System", function () {
       const cert = await certificate.certificates(1);
       expect(cert.amount).to.equal(ethers.parseEther("50"));
       expect(cert.projectId).to.equal(PROJECT_A);
+    });
+  });
+
+  describe("Access Control", function () {
+    it("should reject factory createToken by non-owner", async function () {
+      await expect(
+        factory.connect(user1).createToken("proj", "name", "SYM", ethers.parseEther("100"))
+      ).to.be.revertedWithCustomError(factory, "OwnableUnauthorizedAccount");
+    });
+
+    it("should reject registerProject by non-owner", async function () {
+      await factory.createToken(PROJECT_A, "Alpha", "A", MAX_SUPPLY_A);
+      await expect(
+        manager.connect(user1).registerProject(PROJECT_A)
+      ).to.be.revertedWithCustomError(manager, "OwnableUnauthorizedAccount");
+    });
+
+    it("should reject partialMature by non-owner", async function () {
+      await factory.createToken(PROJECT_A, "Alpha", "A", MAX_SUPPLY_A);
+      const tokenA = await ethers.getContractAt("ProjectToken", await factory.getToken(PROJECT_A));
+      await tokenA.setManager(await manager.getAddress());
+      await manager.registerProject(PROJECT_A);
+      await tokenA.mint(owner.address, ethers.parseEther("100"));
+      await expect(
+        manager.connect(user1).partialMature(PROJECT_A, 50)
+      ).to.be.revertedWithCustomError(manager, "OwnableUnauthorizedAccount");
+    });
+
+    it("should reject SECToken mint by non-pool address", async function () {
+      await expect(
+        citToken.connect(user1).mint(user1.address, ethers.parseEther("100"))
+      ).to.be.revertedWith("Only CreditPool");
     });
   });
 });

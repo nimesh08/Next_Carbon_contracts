@@ -66,7 +66,9 @@ contract CreditManager is Ownable {
         uint256 poolBalance = pt.balanceOf(address(pool));
 
         uint256 walletBurn = (walletBalance * _percent) / 100;
+        walletBurn = (walletBurn / 1e18) * 1e18; // truncate to whole token units
         uint256 poolBurn = (poolBalance * _percent) / 100;
+        poolBurn = (poolBurn / 1e18) * 1e18; // truncate to whole token units
         uint256 totalVcc = walletBurn + poolBurn;
 
         require(totalVcc > 0, "Nothing to mature");

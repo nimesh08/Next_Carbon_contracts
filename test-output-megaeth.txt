@@ -1,0 +1,358 @@
+[dotenv@17.3.1] injecting env (4) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+
+  Carbon Credit Token System
+    ProjectTokenFactory
+      ✔ should deploy a new project token with maxSupply (1359ms)
+      1) should reject duplicate project IDs
+      2) should reject zero maxSupply
+    ProjectToken - MaxSupply
+      ✔ should mint within maxSupply (846ms)
+      3) should reject minting beyond maxSupply
+      4) should only allow owner to mint
+      ✔ should allow burnFrom by manager (2788ms)
+      5) should reject burnFrom by non-authorized address
+    CreditPool - Deposit & Withdraw (1:1 CIT)
+      ✔ should deposit PT and receive 1:1 CIT (1841ms)
+      ✔ should deposit from different projects and get 1:1 CIT each (3702ms)
+      ✔ should withdraw proportional PT when burning CIT (2872ms)
+      6) should reject deposit of unregistered token
+      7) should reject deposit with zero amount
+      8) should reject withdraw with zero amount
+      ✔ should handle proportional withdraw with two project tokens (4749ms)
+    Partial Maturity
+      ✔ should burn 10% PT from wallet and mint VCC (2028ms)
+      ✔ should burn PT from BOTH wallet and pool during partial maturity (4978ms)
+      ✔ should support multi-round maturity (10% then 20% then 30%) (4380ms)
+      9) should revert partial maturity with invalid percent
+      ✔ should handle 100% maturity — burns all PT (2060ms)
+      ✔ should verify PT burned equals VCC minted (conservation law) (2064ms)
+      ✔ should handle integer rounding in partial maturity (2047ms)
+      10) should revert maturity on unregistered project
+      11) should revert maturity when nothing to mature (zero balances)
+    TRUE FCFS - claimVCC
+      ✔ should allow claiming VCC 1:1 from pool (FCFS) (4837ms)
+      ✔ should cap claim at available VCC (burns only matching CIT) (4571ms)
+      12) should reject claim when pool has zero VCC
+      ✔ should handle FCFS across multiple users (8148ms)
+      13) should reject claim with zero amount
+    Atomic Offset with NFT Certificate
+      ✔ should burn VCC and mint NFT in single transaction (2227ms)
+      14) should fail offset with zero amount
+      15) should fail offset when holder has insufficient VCC
+      ✔ should mint sequential NFT IDs for multiple offsets (3133ms)
+      16) should reject offset by non-owner
+    Full Lifecycle
+      ✔ Buy → Deposit → Mature → Claim → Offset → NFT (10636ms)
+    Access Control
+      17) should reject factory createToken by non-owner
+      18) should reject registerProject by non-owner
+      19) should reject partialMature by non-owner
+      20) should reject SECToken mint by non-pool address
+
+
+  19 passing (9m)
+  20 failing
+
+  1) Carbon Credit Token System
+       ProjectTokenFactory
+         should reject duplicate project IDs:
+     ProviderError: execution reverted: Token already exists for project
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.createToken (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:77:7)
+
+  2) Carbon Credit Token System
+       ProjectTokenFactory
+         should reject zero maxSupply:
+     ProviderError: execution reverted: Max supply must be > 0
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.createToken (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:83:7)
+
+  3) Carbon Credit Token System
+       ProjectToken - MaxSupply
+         should reject minting beyond maxSupply:
+     ProviderError: execution reverted: Exceeds max supply
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.mint (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:104:7)
+
+  4) Carbon Credit Token System
+       ProjectToken - MaxSupply
+         should only allow owner to mint:
+     ProviderError: execution reverted
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.mint (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:110:7)
+
+  5) Carbon Credit Token System
+       ProjectToken - MaxSupply
+         should reject burnFrom by non-authorized address:
+     ProviderError: execution reverted: Not authorized
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.burnFrom (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:124:7)
+
+  6) Carbon Credit Token System
+       CreditPool - Deposit & Withdraw (1:1 CIT)
+         should reject deposit of unregistered token:
+     ProviderError: execution reverted: Token not registered
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.deposit (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:180:7)
+
+  7) Carbon Credit Token System
+       CreditPool - Deposit & Withdraw (1:1 CIT)
+         should reject deposit with zero amount:
+     ProviderError: execution reverted: Amount must be > 0
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.deposit (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:186:7)
+
+  8) Carbon Credit Token System
+       CreditPool - Deposit & Withdraw (1:1 CIT)
+         should reject withdraw with zero amount:
+     ProviderError: execution reverted: Amount must be > 0
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.withdraw (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:192:7)
+
+  9) Carbon Credit Token System
+       Partial Maturity
+         should revert partial maturity with invalid percent:
+     ProviderError: execution reverted: Percent must be 1-100
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.partialMature (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:265:7)
+
+  10) Carbon Credit Token System
+       Partial Maturity
+         should revert maturity on unregistered project:
+     ProviderError: execution reverted: Project not registered
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.partialMature (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:296:7)
+
+  11) Carbon Credit Token System
+       Partial Maturity
+         should revert maturity when nothing to mature (zero balances):
+     ProviderError: execution reverted: Nothing to mature
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.partialMature (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:302:7)
+
+  12) Carbon Credit Token System
+       TRUE FCFS - claimVCC
+         should reject claim when pool has zero VCC:
+     ProviderError: execution reverted: No VCC in pool
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.claimVCC (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:349:7)
+
+  13) Carbon Credit Token System
+       TRUE FCFS - claimVCC
+         should reject claim with zero amount:
+     ProviderError: execution reverted: Amount must be > 0
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.claimVCC (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:381:7)
+
+  14) Carbon Credit Token System
+       Atomic Offset with NFT Certificate
+         should fail offset with zero amount:
+     ProviderError: execution reverted: Amount must be > 0
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.offset (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:409:7)
+
+  15) Carbon Credit Token System
+       Atomic Offset with NFT Certificate
+         should fail offset when holder has insufficient VCC:
+     ProviderError: execution reverted
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.offset (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:415:7)
+
+  16) Carbon Credit Token System
+       Atomic Offset with NFT Certificate
+         should reject offset by non-owner:
+     ProviderError: execution reverted
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.offset (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:438:7)
+
+  17) Carbon Credit Token System
+       Access Control
+         should reject factory createToken by non-owner:
+     ProviderError: execution reverted
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.createToken (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:495:7)
+
+  18) Carbon Credit Token System
+       Access Control
+         should reject registerProject by non-owner:
+     ProviderError: execution reverted
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.registerProject (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:502:7)
+
+  19) Carbon Credit Token System
+       Access Control
+         should reject partialMature by non-owner:
+     ProviderError: execution reverted
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.partialMature (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:513:7)
+
+  20) Carbon Credit Token System
+       Access Control
+         should reject SECToken mint by non-pool address:
+     ProviderError: execution reverted: Only CreditPool
+      at HttpProvider.request (/home/ubuntu/Next_Carbon_contracts/node_modules/hardhat/src/internal/core/providers/http.ts:116:21)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async HardhatEthersProvider.estimateGas (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/internal/hardhat-ethers-provider.ts:246:27)
+      at async /home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:339:35
+      at async Promise.all (index 0)
+      at async HardhatEthersSigner._sendUncheckedTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:360:7)
+      at async HardhatEthersSigner.sendTransaction (/home/ubuntu/Next_Carbon_contracts/node_modules/@nomicfoundation/hardhat-ethers/src/signers.ts:185:18)
+      at async send (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:313:20)
+      at async Proxy.mint (/home/ubuntu/Next_Carbon_contracts/node_modules/ethers/src.ts/contract/contract.ts:352:16)
+      at async Context.<anonymous> (/home/ubuntu/Next_Carbon_contracts/test/CreditSystem.test.ts:519:7)
+
+
+

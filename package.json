@@ -17,6 +17,7 @@
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
     "hardhat": "^2.28.6",
+    "hardhat-gas-reporter": "^2.3.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
